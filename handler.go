@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"time"
 	"errors"
 	"encoding/json"
@@ -36,7 +36,7 @@ var Home = func(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return
 		}
-		fmt.Printf("Username is %s", userName)
+		log.Println("Username is ", userName)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode("Welcome to my ToDo App!!")
 }
@@ -80,7 +80,6 @@ func Signin(w http.ResponseWriter, r *http.Request){
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 		}
-		fmt.Printf("Username %s, Password %s\n", creds.Username, creds.Password)
 		// We create another instance of `Credentials` to store the credentials we get from the database
 		storedCreds := &Credentials{}
 		// Store the obtained password in `storedCreds`
@@ -97,10 +96,8 @@ func Signin(w http.ResponseWriter, r *http.Request){
 				return
 		}
 		// Compare the stored hashed password, with the hashed version of the password that was received
-		fmt.Printf("Input password %s, stored Password %s\n", creds.Password, storedCreds.Password)
-
 		if err = bcrypt.CompareHashAndPassword([]byte(storedCreds.Password), []byte(creds.Password)); err != nil {
-				fmt.Printf("Passwords dont match\n")
+				log.Println("Passwords dont match\n")
 				// If the two passwords don't match, return a 401 status
 				w.WriteHeader(http.StatusUnauthorized)
 				return
@@ -112,7 +109,8 @@ func Signin(w http.ResponseWriter, r *http.Request){
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		fmt.Printf("Session Token %s, Password %s\n", sessionToken, storedCreds.Password)
+		log.Println("Session Token: ", sessionToken)
+
 		// Finally, we set the client cookie for "session_token" as the session token we just generated
 		// we also set an expiry time of 120 seconds, the same as the cache
 		http.SetCookie(w, &http.Cookie{
@@ -129,7 +127,6 @@ var GetTasks = func(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 				return
 		}
-		fmt.Printf("Username = %s\n", userName)
 		var tasks []Task
 
 		SqlStatement := `
@@ -148,7 +145,8 @@ var GetTasks = func(w http.ResponseWriter, r *http.Request) {
 				var Priority int
 				var Status int
 				var DueDate string
-				rows.Scan(&Id, &Name, &Description, &Priority, &Status, &DueDate)
+				var username string
+				rows.Scan(&Id, &Name, &Description, &Priority, &Status, &DueDate, &username)
 
 				tasks = append(tasks, Task{
 						Id: Id,
@@ -186,7 +184,7 @@ var CreateTask = func(w http.ResponseWriter, r *http.Request) {
 		`
 
 	id := 0
-	err = db.QueryRow(sqlStatement, task.Name, task.Description, task.Priority, task.DueDate, task.Status, userName).Scan(&id)
+	err = db.QueryRow(sqlStatement, task.Name, task.Description, task.Priority, task.DueDate, task.Status, &userName).Scan(&id)
 	if err != nil {
 		panic(err)
 	}
@@ -220,7 +218,7 @@ var UpdateTask = func(w http.ResponseWriter, r *http.Request) {
 				r.FormValue("description"),
 				params["id"],
 				userName,
-				).Scan(&todo.Id, &todo.Name, &todo.Description, &todo.Priority, &todo.DueDate, &todo.Status)
+				).Scan(&todo.Id, &todo.Name, &todo.Description, &todo.Priority, &todo.DueDate, &todo.Status, &userName)
 
 		if err != nil {
 				panic(err)
@@ -241,14 +239,14 @@ var CompleteTask = func(w http.ResponseWriter, r *http.Request) {
 		SqlStatement := `
 				UPDATE tasks
 				SET status = 1
-				WHERE id = $1 and username = $2
+				WHERE id = $1 and username like $2
 				RETURNING *
 				`
 
 		err = db.QueryRow(
 				SqlStatement,
 				params["id"], userName,
-				).Scan(&todo.Id, &todo.Name, &todo.Description, &todo.Priority, &todo.DueDate, &todo.Status)
+				).Scan(&todo.Id, &todo.Name, &todo.Description, &todo.Priority, &todo.DueDate, &todo.Status, &userName)
 
 		if err != nil {
 				panic(err)
@@ -267,14 +265,14 @@ var DeleteTask = func(w http.ResponseWriter, r *http.Request) {
 
 		SqlStatement := `
 				DELETE FROM tasks
-				WHERE id = $1 and username = $2
+				WHERE id = $1 and username like $2
 				RETURNING *
 				`
 
 		err = db.QueryRow(
 				SqlStatement,
 				params["id"], userName,
-				).Scan(&todo.Id, &todo.Name, &todo.Description, &todo.Priority, &todo.DueDate, &todo.Status)
+				).Scan(&todo.Id, &todo.Name, &todo.Description, &todo.Priority, &todo.DueDate, &todo.Status, &userName)
 
 		if err != nil {
 			panic(err)
@@ -289,25 +287,25 @@ func validateSessionID(w http.ResponseWriter, r *http.Request) (string, error) {
 		c, err := r.Cookie("session_token")
 		if err != nil {
 				if err == http.ErrNoCookie {
+						log.Println("Error finding cookie in request")
 						// If the cookie is not set, return an unauthorized status
 						w.WriteHeader(http.StatusUnauthorized)
 						return "", err
 				}
-				fmt.Printf("Error finding cookie\n")
 				// For any other type of error, return a bad request status
 				w.WriteHeader(http.StatusBadRequest)
 				return "", err
 		}
 		sessionToken := c.Value
-		fmt.Printf("Found cookie %s\n", sessionToken)
+		log.Println("Found cookie ", sessionToken)
 		// We then get the name of the user from our cache, where we set the session token
 		if !validateSession(sessionToken) {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Printf("Failed to validate cookie %s\n", sessionToken)
-			return "", errors.New("sessionToken not valid\n")
+			log.Println("Failed to validate cookie ", sessionToken)
+			return "", errors.New("sessionToken not valid")
 		}
 		if userName, ok := getUserNameFromSession(sessionToken); ok {
 			return userName, nil
 		}
-		return "", errors.New("sessionToken not valid\n") 
+		return "", errors.New("sessionToken not valid")
 }

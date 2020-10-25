@@ -27,31 +27,31 @@ create table tasks (
 
 API Enpoints:
 -------------
-POST '/signup'
+1) POST '/signup'
 This API is used for create a new account for the user. 
 This is a POST request, the JSON fields for username and password must be provided in the input request body.
 
 
 
-POST '/signin'
+2) POST '/signin'
 This API is used for user login.
 This is a POST request, the JSON fields for username and password must be provided in the input request body.
 Once the login is success, there is a session cookie generated which is stored in the response header.
 User has to present this cookie for accessing the future ToDo list requests.
 
  
-POST '/addTask'
+3) POST '/addTask'
 This API adds a new ToDo task for the user.
 This is a POST request, the JSON fields for task name, description, priority, due_date, status must be provided in the input request body.
 For authentication of the user, the session cookie has to be presented in the request header.
 
 
-GET '/getTasks'
+4) GET '/getTasks'
 This API returns a list of all the ToDo tasks created by the user.
 For authentication of the user, the session cookie has to be presented in the request header.
 
 
-PUT '/updateTask/{id}'
+5) PUT '/updateTask/{id}'
 This API updates a ToDo task for the user.
 The {id} field for a ToDo task is returned in the '/get/Tasks' API.
 This is a PUT request, the JSON fields for task name, description, priority, due_date, status must be provided in the input request body.
@@ -59,13 +59,13 @@ For authentication of the user, the session cookie has to be presented in the re
 
 
 
-PUT '/completeTask/{id}'
+6) PUT '/completeTask/{id}'
 This API marks a ToDo task as Completed for the user.
 The {id} field for a ToDo task is returned in the '/get/Tasks' API.
 
 
 
-DELETE '/deleteTask/{id}'
+7) DELETE '/deleteTask/{id}'
 This API deletes a ToDo task for the user.
 The {id} field for a ToDo task is returned in the '/get/Tasks' API.
 
